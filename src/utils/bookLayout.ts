@@ -11,6 +11,7 @@ export type BookPageSpec =
       section: BookSection
       entries: { name: string; page: number }[]
     }
+  | { kind: 'divider'; id: string; label: string; title: string }
   | {
       kind: 'person'
       id: string
@@ -24,7 +25,7 @@ export const ORGANIZERS_INDEX_PAGE = 2
 
 /**
  * Page order: cover, leaders index, organizers index, leader pages,
- * organizer pages. People are sorted A–Z by name. Each entry is one sheet; its array position is
+ * an organizers divider, then organizer pages. People are sorted A–Z by name. Each entry is one sheet; its array position is
  * the page number shown in the indexes and used for navigation. Turning the last
  * page closes the book on the front cover.
  */
@@ -38,7 +39,7 @@ export function buildBookLayout(
   const leaders = [...leaderList].sort(byName)
   const organizers = [...organizerList].sort(byName)
   const firstLeaderPage = ORGANIZERS_INDEX_PAGE + 1
-  const firstOrganizerPage = firstLeaderPage + leaders.length
+  const firstOrganizerPage = firstLeaderPage + leaders.length + 1
 
   const personPage = (person: Attendee, section: BookSection): BookPageSpec => ({
     kind: 'person',
@@ -68,6 +69,7 @@ export function buildBookLayout(
       })),
     },
     ...leaders.map((p) => personPage(p, 'leaders')),
+    { kind: 'divider', id: 'organizers-divider', label: 'Organizers', title: 'Organizers' },
     ...organizers.map((p) => personPage(p, 'organizers')),
   ]
 }

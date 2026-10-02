@@ -1,1 +1,65 @@
-[]
+[
+  {
+    "id": "sooraj-nair",
+    "name": "Sooraj Nair",
+    "designation": "Lead Product Designer",
+    "organization": "BrowserStack",
+    "linkedin": "https://www.linkedin.com/in/soorajnair19/",
+    "intro": "Leads product design for developer tools used around the world. Focused on making complex workflows feel clear and fast.",
+    "photo": "sooraj-nair.jpg"
+  },
+  {
+    "id": "penaaz-valecha",
+    "name": "Penaaz Valecha",
+    "designation": "Partnerships / Freelance Marketer",
+    "organization": "FOF Mumbai",
+    "linkedin": "https://www.linkedin.com/in/penaazvalecha/",
+    "intro": "Builds partnerships and marketing for community-led work. Connects people and programs with a freelance, hands-on approach.",
+    "photo": "penaaz-valecha.jpg"
+  },
+  {
+    "id": "anushka-vyas",
+    "name": "Anushka Vyas",
+    "designation": "Sr Graphic Designer",
+    "organization": "Dream Game Studios",
+    "linkedin": "https://www.linkedin.com/in/anushkavyas/",
+    "intro": "Senior graphic designer shaping visual identity for games. Brings story, character, and craft into every frame.",
+    "photo": "anushka-vyas.jpg"
+  },
+  {
+    "id": "siddharth-mehta",
+    "name": "Siddharth Mehta",
+    "designation": "Product Designer",
+    "organization": "Fractal Analytics",
+    "linkedin": "https://www.linkedin.com/in/siddharthmehtaa/",
+    "intro": "Product designer turning analytics into experiences people can use. Cares about clarity when the data gets complicated.",
+    "photo": "siddharth-mehta.jpg"
+  },
+  {
+    "id": "shruti-chavan",
+    "name": "Shruti Chavan",
+    "designation": "UX Designer",
+    "organization": "Nielsen",
+    "linkedin": "https://www.linkedin.com/in/shrutichavan21/",
+    "intro": "UX designer grounding product decisions in how people actually behave. Turns research into interfaces that feel considered.",
+    "photo": "shruti-chavan.jpg"
+  },
+  {
+    "id": "apurva-mantri",
+    "name": "Apurva Mantri",
+    "designation": "UX Analyst",
+    "organization": "Accenture Song",
+    "linkedin": "https://www.linkedin.com/in/apurva-mantri-cd/",
+    "intro": "UX analyst connecting research insight to design decisions. Helps teams see the person behind the metric.",
+    "photo": "apurva-mantri.jpg"
+  },
+  {
+    "id": "archana-venkat",
+    "name": "Archana Venkat",
+    "designation": "Design Student",
+    "organization": "Atlas SkillTech University",
+    "linkedin": "https://www.linkedin.com/in/archana-venkat-designs/",
+    "intro": "Design student exploring craft, ideas, and what comes next. Learning by making work that is curious and considered.",
+    "photo": "archana-venkat.jpg"
+  }
+]

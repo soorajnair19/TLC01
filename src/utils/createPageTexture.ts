@@ -283,6 +283,25 @@ export function createCoverTexture(title: string, subtitle: string): HTMLCanvasE
   return canvas
 }
 
+export function createDividerTexture(title: string): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  canvas.width = PAGE_W
+  canvas.height = PAGE_H
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return canvas
+
+  ctx.fillStyle = ACCENT
+  ctx.fillRect(0, 0, PAGE_W, PAGE_H)
+
+  ctx.fillStyle = PAPER
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.font = `700 84px "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif`
+  ctx.fillText(title, PAGE_W / 2, PAGE_H / 2)
+
+  return canvas
+}
+
 export function createBlankPageTexture(label = ''): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = PAGE_W

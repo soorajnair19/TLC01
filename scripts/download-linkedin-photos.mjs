@@ -5,7 +5,14 @@ import { fileURLToPath } from 'node:url'
 import { chromium } from 'playwright'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const attendees = JSON.parse(readFileSync(path.join(root, 'src/data/attendees.json'), 'utf8'))
+
+function loadPeople(filename) {
+  const full = path.join(root, 'src/data', filename)
+  if (!existsSync(full)) return []
+  return JSON.parse(readFileSync(full, 'utf8'))
+}
+
+const attendees = [...loadPeople('attendees.json'), ...loadPeople('organizers.json')]
 const photosDir = path.join(root, 'public/photos')
 const profileDir = path.join(root, '.linkedin-browser')
 
@@ -59,9 +66,13 @@ async function collectPhotoUrls(page) {
         }
       }
     }
-    const primary = records
-      .filter((record) => /profile-displayphoto/.test(record.url) && record.top >= 0 && record.top < 500)
-      .sort((a, b) => b.area - a.area || a.top - b.top)[0]
+    const portraits = records.filter(
+      (record) => /profile-displayphoto/.test(record.url) && record.top >= 0 && record.top < 450,
+    )
+    const primary = (portraits.some((record) => record.area >= 64 * 64)
+      ? portraits.filter((record) => record.area >= 64 * 64)
+      : portraits
+    ).sort((a, b) => b.area - a.area || a.top - b.top)[0]
     if (!primary) return records.map((record) => record.url)
     const id = (primary.url.match(/\/dms\/image\/(?:v2\/)?([^/]+)\//) || [])[1]
     if (!id) return [primary.url]
@@ -72,9 +83,15 @@ async function collectPhotoUrls(page) {
 
 async function openLargerPhoto(page) {
   const clicked = await page.evaluate(() => {
-    const img = [...document.querySelectorAll('img')].find((node) =>
-      /profile-displayphoto|profile-framedphoto/.test(node.currentSrc || node.src || ''),
-    )
+    const img = [...document.querySelectorAll('img')]
+      .filter((node) => /profile-displayphoto|profile-framedphoto/.test(node.currentSrc || node.src || ''))
+      .sort((a, b) => {
+        const area = (node) => {
+          const rect = node.getBoundingClientRect()
+          return rect.width * rect.height
+        }
+        return area(b) - area(a)
+      })[0]
     const target = img?.closest('button, a') || img
     if (!target) return false
     target.click()
@@ -160,7 +177,8 @@ async function main() {
       }
 
       let found = bestPhotoUrl(await collectPhotoUrls(page))
-      if (!found || photoSize(found) < 400) {
+      for (let attempt = 0; attempt < 3 && (!found || photoSize(found) < 400); attempt += 1) {
+        await page.waitForTimeout(1_500)
         await openLargerPhoto(page)
         const larger = bestPhotoUrl(await collectPhotoUrls(page))
         if (larger && photoSize(larger) > photoSize(found || '')) found = larger

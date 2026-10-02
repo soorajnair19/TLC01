@@ -5,6 +5,7 @@ import {
   createAttendeePageTexture,
   createBlankPageTexture,
   createCoverTexture,
+  createDividerTexture,
   createIndexPageTexture,
   paintPage,
   type PageHotspot,
@@ -77,6 +78,8 @@ async function buildFront(
         pageNumber,
       )
     }
+    case 'divider':
+      return { canvas: createDividerTexture(spec.title), hotspots: [] }
     case 'person':
       return createAttendeePageTexture(spec.person, pageNumber)
   }
