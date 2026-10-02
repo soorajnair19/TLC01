@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import * as THREE from 'three'
 import type { BookPageSpec } from '../utils/bookLayout'
 import {
-  LINKEDIN_HIT_AREA,
   createAttendeePageTexture,
   createBlankPageTexture,
   createCoverTexture,
@@ -63,13 +62,8 @@ async function buildFront(
         pageNumber,
       )
     }
-    case 'person': {
-      const canvas = await createAttendeePageTexture(spec.person, pageNumber)
-      const hotspots: PageHotspot[] = spec.person.linkedin
-        ? [{ ...LINKEDIN_HIT_AREA, action: { kind: 'url', href: spec.person.linkedin } }]
-        : []
-      return { canvas, hotspots }
-    }
+    case 'person':
+      return createAttendeePageTexture(spec.person, pageNumber)
   }
 }
 

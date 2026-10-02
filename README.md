@@ -67,5 +67,5 @@ Each entry:
 ## Notes
 
 - LinkedIn opens from the side panel for reliable clicking.
-- Page content (photo, name, role, org, intro, LinkedIn URL) is painted onto each page texture so it flips with the paper.
+- Page content (photo, name, role, org, intro, LinkedIn icon next to the name) is painted onto each page texture so it flips with the paper.
 - Intros in the seed JSON are placeholders — replace them with real copy whenever ready.

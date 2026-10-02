@@ -2,10 +2,10 @@ import type { Attendee } from '../types/attendee'
 
 const PAGE_W = 1024
 const PAGE_H = 1280
-const LINK_X = 140
-const LINK_TITLE_Y = 1076
-const LINK_URL_Y = 1110
-const LINK_MAX_W = PAGE_W - 280
+const TEXT_X = 140
+const TEXT_MAX_W = PAGE_W - 280
+const LINKEDIN_ICON_SIZE = 46
+const LINKEDIN_ICON_GAP = 18
 // Must sit above the inner border drawn at PAGE_H - 60.
 const PAGE_NUMBER_Y = PAGE_H - 84
 
@@ -23,7 +23,7 @@ function wrapText(
   maxWidth: number,
   lineHeight: number,
   maxLines: number,
-) {
+): { endX: number; baselineY: number } {
   const words = text.split(/\s+/)
   let line = ''
   let lineCount = 0
@@ -42,13 +42,29 @@ function wrapText(
           remaining = remaining.slice(0, -1)
         }
         ctx.fillText(`${remaining}…`, x, cursorY)
-        return
+        return { endX: x + ctx.measureText(`${remaining}…`).width, baselineY: cursorY }
       }
     } else {
       line = test
     }
   }
   if (line) ctx.fillText(line, x, cursorY)
+  return { endX: x + ctx.measureText(line).width, baselineY: cursorY }
+}
+
+function drawLinkedInIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  ctx.save()
+  ctx.fillStyle = ACCENT
+  ctx.beginPath()
+  ctx.roundRect(x, y, size, size, size * 0.18)
+  ctx.fill()
+
+  ctx.fillStyle = PAPER
+  ctx.font = `700 ${Math.round(size * 0.66)}px "Helvetica Neue", Arial, sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  ctx.fillText('in', x + size * 0.52, y + size * 0.8)
+  ctx.restore()
 }
 
 function drawPaper(ctx: CanvasRenderingContext2D) {
@@ -113,12 +129,13 @@ async function loadImage(src: string): Promise<HTMLImageElement | null> {
 export async function createAttendeePageTexture(
   attendee: Attendee,
   pageNumber: number,
-): Promise<HTMLCanvasElement> {
+): Promise<{ canvas: HTMLCanvasElement; hotspots: PageHotspot[] }> {
   const canvas = document.createElement('canvas')
   canvas.width = PAGE_W
   canvas.height = PAGE_H
   const ctx = canvas.getContext('2d')
-  if (!ctx) return canvas
+  const hotspots: PageHotspot[] = []
+  if (!ctx) return { canvas, hotspots }
 
   drawPaper(ctx)
 
@@ -164,14 +181,31 @@ export async function createAttendeePageTexture(
   ctx.stroke()
 
   // Text block
-  const textX = LINK_X
+  const textX = TEXT_X
   let textY = photoY + photoH + 72
 
   ctx.fillStyle = INK
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   ctx.font = `700 54px "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif`
-  wrapText(ctx, attendee.name, textX, textY, PAGE_W - 280, 62, 2)
+  const nameMaxW = attendee.linkedin
+    ? TEXT_MAX_W - LINKEDIN_ICON_SIZE - LINKEDIN_ICON_GAP
+    : TEXT_MAX_W
+  const nameEnd = wrapText(ctx, attendee.name, textX, textY, nameMaxW, 62, 2)
+
+  if (attendee.linkedin) {
+    const iconX = nameEnd.endX + LINKEDIN_ICON_GAP
+    const iconY = nameEnd.baselineY - LINKEDIN_ICON_SIZE + 6
+    drawLinkedInIcon(ctx, iconX, iconY, LINKEDIN_ICON_SIZE)
+    const pad = 12
+    hotspots.push({
+      x: iconX - pad,
+      y: iconY - pad,
+      width: LINKEDIN_ICON_SIZE + pad * 2,
+      height: LINKEDIN_ICON_SIZE + pad * 2,
+      action: { kind: 'url', href: attendee.linkedin },
+    })
+  }
 
   textY += 78
   ctx.fillStyle = MUTED
@@ -199,23 +233,13 @@ export async function createAttendeePageTexture(
   ctx.font = `400 26px "Avenir Next", "Segoe UI", sans-serif`
   wrapText(ctx, attendee.intro, textX, textY, PAGE_W - 280, 38, 5)
 
-  textY = LINK_TITLE_Y
-  ctx.fillStyle = ACCENT
-  ctx.font = `600 22px "Avenir Next", "Segoe UI", sans-serif`
-  ctx.fillText('LinkedIn', textX, textY)
-  textY = LINK_URL_Y
-  ctx.fillStyle = MUTED
-  ctx.font = `400 20px "Avenir Next", "Segoe UI", sans-serif`
-  const linkedinLabel = attendee.linkedin.replace(/^https?:\/\/(www\.)?/, '')
-  wrapText(ctx, linkedinLabel, textX, textY, PAGE_W - 280, 28, 2)
-
   // Page number
   ctx.fillStyle = MUTED
   ctx.font = `400 20px "Avenir Next", "Segoe UI", sans-serif`
   ctx.textAlign = 'center'
   ctx.fillText(String(pageNumber), PAGE_W / 2, PAGE_NUMBER_Y)
 
-  return canvas
+  return { canvas, hotspots }
 }
 
 export function createCoverTexture(title: string, subtitle: string): HTMLCanvasElement {
@@ -391,13 +415,6 @@ export type PageHotspot = {
 }
 
 export const PAGE_TEXTURE_SIZE = { width: PAGE_W, height: PAGE_H }
-export const LINKEDIN_HIT_AREA = {
-  x: LINK_X,
-  y: LINK_TITLE_Y - 28,
-  width: LINK_MAX_W,
-  height: LINK_URL_Y - (LINK_TITLE_Y - 28) + 52,
-}
-
 export function findHotspotFromUv(
   hotspots: PageHotspot[],
   u: number,
