@@ -40,20 +40,11 @@ export function Controls({
         <button
           type="button"
           className="nav-btn"
-          onClick={onPrev}
-          disabled={!canGoPrev || isAnimating}
-        >
-          Previous
-        </button>
-        <button
-          type="button"
-          className="nav-btn"
           onClick={() => onGoTo(LEADERS_INDEX_PAGE)}
           disabled={isAnimating || flippedCount === LEADERS_INDEX_PAGE}
         >
           Leaders
         </button>
-        <span className="page-index">{label}</span>
         <button
           type="button"
           className="nav-btn"
@@ -61,6 +52,15 @@ export function Controls({
           disabled={isAnimating || flippedCount === ORGANIZERS_INDEX_PAGE}
         >
           Organizers
+        </button>
+        <span className="page-index">{label}</span>
+        <button
+          type="button"
+          className="nav-btn"
+          onClick={onPrev}
+          disabled={!canGoPrev || isAnimating}
+        >
+          Previous
         </button>
         <button
           type="button"
