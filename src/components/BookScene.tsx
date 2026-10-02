@@ -8,7 +8,7 @@ import type { BookPageSpec } from '../utils/bookLayout'
 import { findHotspotFromUv, type HotspotAction, type PageHotspot } from '../utils/createPageTexture'
 import type { Vec2 } from '../utils/pageFold'
 import { type PageSheet, useScrapbookPages } from './AttendeeCardPage'
-import { BookPage, PAGE_ASPECT, PAGE_HEIGHT, PAGE_WIDTH } from './BookPage'
+import { BookPage, PAGE_ASPECT, PAGE_HEIGHT, PAGE_WIDTH, SPINE_HALF } from './BookPage'
 
 type BookProps = {
   layout: BookPageSpec[]
@@ -76,7 +76,9 @@ function useBookPointer(
       plane.applyMatrix4(spread.matrixWorld, normalMatrix.getNormalMatrix(spread.matrixWorld))
       if (!raycaster.ray.intersectPlane(plane, hitPoint)) return null
       spread.worldToLocal(hitPoint)
-      return [hitPoint.x / PAGE_WIDTH, (PAGE_HEIGHT / 2 - hitPoint.y) / PAGE_WIDTH]
+      const x = hitPoint.x
+      const pageX = Math.abs(x) <= SPINE_HALF ? 0 : (x - Math.sign(x) * SPINE_HALF) / PAGE_WIDTH
+      return [pageX, (PAGE_HEIGHT / 2 - hitPoint.y) / PAGE_WIDTH]
     }
 
     const hotspotAt = (pt: Vec2) => {
@@ -208,7 +210,7 @@ function ScrapbookBook({
   const spine = useMemo(
     () => (
       <mesh position={[0, 0, 0]} castShadow>
-        <boxGeometry args={[0.06, PAGE_HEIGHT + 0.02, 0.08]} />
+        <boxGeometry args={[SPINE_HALF * 2, PAGE_HEIGHT + 0.02, 0.08]} />
         <meshStandardMaterial color="#045C34" roughness={0.65} />
       </mesh>
     ),

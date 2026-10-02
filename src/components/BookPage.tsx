@@ -7,6 +7,8 @@ import { boardPoint, curlPoint, curlRadius, foldOf, smoothstep, clamp } from '..
 export const PAGE_WIDTH = 1.6
 export const PAGE_HEIGHT = 2.0
 export const PAGE_ASPECT = PAGE_HEIGHT / PAGE_WIDTH
+/** Pages begin on the face of the binding, not at its centre, so they don't cut through it. */
+export const SPINE_HALF = 0.03
 const SEGMENTS_X = 32
 const SEGMENTS_Y = 40
 const SHEET_GAP = 0.01
@@ -83,7 +85,7 @@ export function BookPage({ frontMap, backMap, index, totalPages, engine }: BookP
       const sx = side === 'R' ? 1 : -1
       const z = sheetZ(index, totalPages, side)
       for (let i = 0; i < pos.count; i++) {
-        arr[i * 3] = sx * u[i] * W
+        arr[i * 3] = sx * (u[i] * W + SPINE_HALF)
         arr[i * 3 + 1] = top - v[i] * W
         arr[i * 3 + 2] = z
       }
@@ -92,6 +94,8 @@ export function BookPage({ frontMap, backMap, index, totalPages, engine }: BookP
       const s = flip.dir
       const zFrom = sheetZ(index, totalPages, s > 0 ? 'R' : 'L')
       const zTo = sheetZ(index, totalPages, s > 0 ? 'L' : 'R')
+      // Slide the hinge from the face the sheet leaves to the face it lands on.
+      const hinge = s * SPINE_HALF * (1 - 2 * engine.progress())
 
       if (flip.hard) {
         const along = flip.t / Math.PI
@@ -99,7 +103,7 @@ export function BookPage({ frontMap, backMap, index, totalPages, engine }: BookP
         const p: [number, number] = [0, 0]
         for (let i = 0; i < pos.count; i++) {
           boardPoint(u[i], flip.t, p)
-          arr[i * 3] = s * p[0] * W
+          arr[i * 3] = s * p[0] * W + hinge
           arr[i * 3 + 1] = top - v[i] * W
           arr[i * 3 + 2] = zBase + p[1] * W
         }
@@ -119,7 +123,7 @@ export function BookPage({ frontMap, backMap, index, totalPages, engine }: BookP
             p[2] = 0
             p[3] = 0
           }
-          arr[i * 3] = s * p[0] * W
+          arr[i * 3] = s * p[0] * W + hinge
           arr[i * 3 + 1] = top - p[1] * W
           arr[i * 3 + 2] = zFrom + (zFlap - zFrom) * p[3] + p[2] * W
         }
