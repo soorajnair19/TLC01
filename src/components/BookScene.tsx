@@ -178,6 +178,7 @@ function ScrapbookBook({
 }: BookProps & { controlsRef: RefObject<OrbitControlsImpl | null> }) {
   const sheets = useScrapbookPages(layout)
   const bookRef = useRef<THREE.Group>(null)
+  const turnRef = useRef<THREE.Group>(null)
   const spreadRef = useRef<THREE.Group>(null)
 
   const handleHotspot = (action: HotspotAction) => {
@@ -194,6 +195,7 @@ function ScrapbookBook({
   useFrame(() => {
     engine.step(performance.now())
     if (spreadRef.current) spreadRef.current.position.x = engine.restOffset() * PAGE_WIDTH
+    if (turnRef.current) turnRef.current.rotation.y = engine.yaw
   }, -1)
 
   useFrame((state) => {
@@ -223,20 +225,24 @@ function ScrapbookBook({
   }
 
   return (
-    <group ref={bookRef} rotation={[-0.18, 0.35, 0.04]}>
-      <BookBase />
-      <group ref={spreadRef}>
-        {spine}
-        {sheets.map((sheet, index) => (
-          <BookPage
-            key={sheet.id}
-            index={index}
-            totalPages={total}
-            frontMap={sheet.frontMap}
-            backMap={sheet.backMap}
-            engine={engine}
-          />
-        ))}
+    <group ref={bookRef}>
+      <group ref={turnRef}>
+        <group rotation={[-0.18, 0.35, 0.04]}>
+          <BookBase />
+          <group ref={spreadRef}>
+            {spine}
+            {sheets.map((sheet, index) => (
+              <BookPage
+                key={sheet.id}
+                index={index}
+                totalPages={total}
+                frontMap={sheet.frontMap}
+                backMap={sheet.backMap}
+                engine={engine}
+              />
+            ))}
+          </group>
+        </group>
       </group>
     </group>
   )

@@ -62,16 +62,20 @@ const WRONG_WAY_SWIPE = 0.08
  * Page-turn state machine. Points are in page units: x is signed distance
  * from the spine in page widths (positive = right page), y runs down from
  * the top edge (0…ph). Sheet `index` is the top page on the right; sheets
- * below `index` lie on the left.
+ * below `index` lie on the left. Turning the last sheet shuts the book,
+ * then turns the closed book around so the front cover faces you.
  */
 export class FlipEngine {
   index = 0
   mode: Mode = 'idle'
   flip: Flip | null = null
+  /** Extra yaw while the closed book turns around to the front cover. */
+  yaw = 0
   private readonly onIndex: (index: number) => void
   private drag: Drag | null = null
   private queue: Dir[] = []
   private jumpStepMs: number | null = null
+  private around: { t0: number; dur: number } | null = null
   private readonly reduceMotion: boolean
   readonly count: number
   readonly ph: number
@@ -90,15 +94,21 @@ export class FlipEngine {
   }
 
   canTurn(dir: Dir) {
+    if (this.around) return false
     return dir > 0 ? this.index < this.count : this.index > 0
   }
 
-  /** The covers are boards that swing on the spine instead of curling. */
+  /** The front cover, and the last sheet as it shuts the book, swing as boards. */
   isHard(dir: Dir) {
     const last = this.count - 1
     return dir > 0
-      ? this.index === 0 || this.index === last
-      : this.index === 1 || this.index === this.count
+      ? this.index === 0 || (this.index === last && this.index > 0)
+      : this.index === 1
+  }
+
+  /** Resting side of a sheet. An index of `count` means the book is shut on the back. */
+  sideOf(sheetIndex: number): 'L' | 'R' {
+    return sheetIndex < this.index ? 'L' : 'R'
   }
 
   /** Sheet currently in motion, or -1. */
@@ -116,7 +126,7 @@ export class FlipEngine {
 
   /** Horizontal offset in page widths: a closed book sits centred and slides over as it opens. */
   restOffset() {
-    const rest = (i: number) => (i === 0 ? -0.5 : i === this.count ? 0.5 : 0)
+    const rest = (i: number) => (i <= 0 ? -0.5 : i >= this.count ? 0.5 : 0)
     const a = rest(this.index)
     if (!this.flip) return a
     return a + (rest(this.index + this.flip.dir) - a) * smoothstep(this.progress())
@@ -191,8 +201,43 @@ export class FlipEngine {
     })
   }
 
+  /** Shut book spins about vertical to bring the front cover back around. */
+  private startTurnAround(now: number) {
+    this.around = { t0: now, dur: this.dur(1100) }
+    this.yaw = 0
+    this.mode = 'anim'
+  }
+
+  private finishTurnAround() {
+    this.around = null
+    this.yaw = 0
+    this.index = 0
+    this.mode = 'idle'
+    this.onIndex(0)
+  }
+
+  private playQueue() {
+    while (this.queue.length && !this.canTurn(this.queue[0])) this.queue.shift()
+    if (this.queue.length) {
+      this.tapTurn(this.queue.shift()!, this.ph)
+    } else {
+      this.jumpStepMs = null
+    }
+  }
+
   /** Advances the running animation; call once per frame. */
   step(now = performance.now()) {
+    if (this.around) {
+      const t = Math.min(1, (now - this.around.t0) / this.around.dur)
+      this.yaw = Math.PI * easeInOut(t)
+      if (t < 1) return
+      // A half-turn with every sheet on the left shows the front cover.
+      // Dropping the yaw and restacking the cover on the right matches that view.
+      this.finishTurnAround()
+      this.playQueue()
+      return
+    }
+
     const f = this.flip
     if (this.mode !== 'anim' || !f?.anim) return
     const a = f.anim
@@ -211,23 +256,29 @@ export class FlipEngine {
 
     const done = a.complete
     const dir = f.dir
+    const shutting = done && dir > 0 && this.index === this.count - 1
     this.flip = null
+    if (shutting) {
+      this.index = this.count
+      this.startTurnAround(now)
+      return
+    }
     this.mode = 'idle'
     if (done) {
       this.index += dir
       this.onIndex(this.index)
     }
-    while (this.queue.length && !this.canTurn(this.queue[0])) this.queue.shift()
-    if (this.queue.length) {
-      this.tapTurn(this.queue.shift()!, this.ph)
-    } else {
-      this.jumpStepMs = null
-    }
+    this.playQueue()
   }
 
   finishAnimNow() {
     this.queue.length = 0
     this.jumpStepMs = null
+    if (this.around) {
+      this.around.t0 = -1e9
+      this.step(performance.now())
+      return
+    }
     if (this.mode === 'anim' && this.flip?.anim) {
       this.flip.anim.t0 = -1e9
       this.step(performance.now())
@@ -235,9 +286,11 @@ export class FlipEngine {
   }
 
   turn(dir: Dir) {
-    if (this.mode === 'drag') return
+    if (this.around || this.mode === 'drag') return
     this.jumpStepMs = null
     if (this.mode === 'anim') {
+      // Closing the book already ends on the cover; ignore extra taps until it lands.
+      if (this.flip && this.flip.dir > 0 && this.index === this.count - 1) return
       if (this.queue.length < MAX_TAP_QUEUE) this.queue.push(dir)
       return
     }
@@ -245,10 +298,13 @@ export class FlipEngine {
   }
 
   goTo(requested: number) {
-    if (this.mode === 'drag') return
-    const target = clamp(Math.round(requested), 0, this.count)
-    let at = this.index
-    if (this.mode === 'anim' && this.flip?.anim?.complete) at += this.flip.dir
+    if (this.around || this.mode === 'drag') return
+    const target = clamp(Math.round(requested), 0, Math.max(0, this.count - 1))
+    let at = this.index >= this.count ? 0 : this.index
+    if (this.mode === 'anim' && this.flip?.anim?.complete) {
+      const next = this.index + this.flip.dir
+      at = next >= this.count ? 0 : next
+    }
     this.queue.length = 0
     const distance = Math.abs(target - at)
     if (!distance) return
@@ -385,7 +441,7 @@ export function useFlipEngine(pageCount: number, pageAspect: number) {
         engine.goTo(0)
       } else if (k === 'End') {
         e.preventDefault()
-        engine.goTo(engine.count)
+        engine.goTo(Math.max(0, engine.count - 1))
       }
     }
     window.addEventListener('keydown', onKey)

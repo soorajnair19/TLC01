@@ -23,12 +23,12 @@ npm run preview
 - **Tap a name** in the Leaders or Organizers index to flip through to that page
 - **Leaders / Organizers** buttons jump back to either index
 - **Next / Previous** buttons
-- **Arrow keys**, PageUp / PageDown, Space / Shift+Space; **Home** / **End** for the covers
+- **Arrow keys**, PageUp / PageDown, Space / Shift+Space; **Home** for the cover, **End** for the last page
 - Orbit the camera with mouse drag on empty space; scroll to zoom
 
 ## Book order
 
-Cover → Leaders index → Organizers index → leader pages → organizer pages → back cover.
+Cover → Leaders index → Organizers index → leader pages → organizer pages. Turning the last page closes the book on the front cover.
 Names in both indexes are clickable and flip through to that person's page. Page order is defined in [`src/utils/bookLayout.ts`](src/utils/bookLayout.ts).
 
 ## Update attendees

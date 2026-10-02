@@ -77,7 +77,7 @@ export function BookPage({ frontMap, backMap, index, totalPages, engine }: BookP
     const flip = engine.flip
 
     if (engine.turningSheet() !== index || !flip) {
-      const side: Side = index < engine.index ? 'L' : 'R'
+      const side: Side = engine.sideOf(index)
       if (lastPose.current === side) return
       lastPose.current = side
       const sx = side === 'R' ? 1 : -1

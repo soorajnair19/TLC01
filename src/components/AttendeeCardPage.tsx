@@ -67,11 +67,6 @@ async function buildFront(
         canvas: createCoverTexture('TLC Scrapbook', 'Approved Attendees'),
         hotspots: [],
       }
-    case 'back-cover':
-      return {
-        canvas: createCoverTexture('Thank You', 'Until we meet again'),
-        hotspots: [],
-      }
     case 'index': {
       const copy = INDEX_COPY[spec.section]
       return createIndexPageTexture(
