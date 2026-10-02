@@ -1,136 +1,133 @@
 import { useEffect, useMemo, useRef } from 'react'
-import type { ThreeEvent } from '@react-three/fiber'
-import { useSpring, animated } from '@react-spring/three'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import {
-  findHotspotFromUv,
-  type HotspotAction,
-  type PageHotspot,
-} from '../utils/createPageTexture'
+import type { FlipEngine } from '../hooks/useFlipEngine'
+import { boardPoint, curlPoint, curlRadius, foldOf, smoothstep, clamp } from '../utils/pageFold'
 
 export const PAGE_WIDTH = 1.6
 export const PAGE_HEIGHT = 2.0
-export const PAGE_SEGMENTS = 24
+export const PAGE_ASPECT = PAGE_HEIGHT / PAGE_WIDTH
+const SEGMENTS_X = 32
+const SEGMENTS_Y = 40
+const SHEET_GAP = 0.01
+
+type Side = 'L' | 'R'
+
+/** Resting depth of a sheet: whichever stack it lies on, sheets nearer the open spread sit higher. */
+function sheetZ(index: number, total: number, side: Side) {
+  const level = side === 'R' ? total - 1 - index : index
+  return (level - total / 2) * SHEET_GAP
+}
 
 type BookPageProps = {
   frontMap: THREE.Texture
   backMap: THREE.Texture
   index: number
-  flipped: boolean
   totalPages: number
-  fast?: boolean
-  hotspots?: PageHotspot[]
-  onHotspot?: (action: HotspotAction) => void
-  onHoverHotspot?: (hotspot: PageHotspot | undefined) => void
-  onClickPage?: () => void
-  onFlipSettled?: () => void
+  engine: FlipEngine
 }
 
-const CLICK_DRAG_TOLERANCE_PX = 6
+/**
+ * Front and back share one deforming grid. The front renders only its
+ * front faces; once the sheet lies mirrored on the left its winding flips
+ * and the back mesh (x-mirrored UVs, BackSide) shows instead.
+ */
+function createSheetGeometries() {
+  const front = new THREE.PlaneGeometry(PAGE_WIDTH, PAGE_HEIGHT, SEGMENTS_X, SEGMENTS_Y)
+  front.translate(PAGE_WIDTH / 2, 0, 0)
+  const back = new THREE.BufferGeometry()
+  back.setIndex(front.index)
+  back.setAttribute('position', front.attributes.position)
+  back.setAttribute('normal', front.attributes.normal)
+  const uv = (front.attributes.uv as THREE.BufferAttribute).clone()
+  for (let i = 0; i < uv.count; i++) uv.setX(i, 1 - uv.getX(i))
+  back.setAttribute('uv', uv)
 
-function createPageGeometry() {
-  const geo = new THREE.PlaneGeometry(
-    PAGE_WIDTH,
-    PAGE_HEIGHT,
-    PAGE_SEGMENTS,
-    1,
-  )
-  geo.translate(PAGE_WIDTH / 2, 0, 0)
-  return geo
+  const pos = front.attributes.position as THREE.BufferAttribute
+  const u = new Float32Array(pos.count)
+  const v = new Float32Array(pos.count)
+  for (let i = 0; i < pos.count; i++) {
+    u[i] = pos.getX(i) / PAGE_WIDTH
+    v[i] = (PAGE_HEIGHT / 2 - pos.getY(i)) / PAGE_WIDTH
+  }
+  return { front, back, u, v }
 }
 
-export function BookPage({
-  frontMap,
-  backMap,
-  index,
-  flipped,
-  totalPages,
-  fast = false,
-  hotspots,
-  onHotspot,
-  onHoverHotspot,
-  onClickPage,
-  onFlipSettled,
-}: BookPageProps) {
-  const groupRef = useRef<THREE.Group>(null)
+export function BookPage({ frontMap, backMap, index, totalPages, engine }: BookPageProps) {
+  const sheet = useMemo(() => createSheetGeometries(), [])
   const frontRef = useRef<THREE.Mesh>(null)
-  const backRef = useRef<THREE.Mesh>(null)
-  const basePositions = useRef<Float32Array | null>(null)
-  const flippedRef = useRef(flipped)
-  const shouldNotifySettleRef = useRef(false)
-  const onFlipSettledRef = useRef(onFlipSettled)
+  const lastPose = useRef<string>('')
 
-  const frontGeo = useMemo(() => createPageGeometry(), [])
-  const backGeo = useMemo(() => createPageGeometry(), [])
-
-  useEffect(() => {
-    const pos = frontGeo.attributes.position
-    basePositions.current = new Float32Array(pos.array as Float32Array)
-  }, [frontGeo])
-
-  useEffect(() => {
-    onFlipSettledRef.current = onFlipSettled
-  }, [onFlipSettled])
-
-  useEffect(() => {
-    if (flippedRef.current !== flipped) {
-      shouldNotifySettleRef.current = true
-      flippedRef.current = flipped
-    }
-  }, [flipped])
-
-  const { open } = useSpring({
-    open: flipped ? 1 : 0,
-    config: fast
-      ? { mass: 1, tension: 280, friction: 28, clamp: true }
-      : { mass: 1.05, tension: 175, friction: 24, clamp: true },
-    onRest: () => {
-      if (!shouldNotifySettleRef.current) return
-      shouldNotifySettleRef.current = false
-      onFlipSettledRef.current?.()
+  useEffect(
+    () => () => {
+      sheet.front.dispose()
+      sheet.back.dispose()
     },
-  })
+    [sheet],
+  )
 
-  useEffect(() => {
-    let frame = 0
-    const applyCurl = (mesh: THREE.Mesh | null, base: Float32Array, o: number) => {
-      if (!mesh) return
-      const pos = mesh.geometry.attributes.position as THREE.BufferAttribute
-      const arr = pos.array as Float32Array
+  useFrame(() => {
+    const front = frontRef.current?.geometry
+    if (!front) return
+    const { u, v } = sheet
+    const pos = front.attributes.position as THREE.BufferAttribute
+    const arr = pos.array as Float32Array
+    const W = PAGE_WIDTH
+    const top = PAGE_HEIGHT / 2
+    const flip = engine.flip
+
+    if (engine.turningSheet() !== index || !flip) {
+      const side: Side = index < engine.index ? 'L' : 'R'
+      if (lastPose.current === side) return
+      lastPose.current = side
+      const sx = side === 'R' ? 1 : -1
+      const z = sheetZ(index, totalPages, side)
       for (let i = 0; i < pos.count; i++) {
-        const ix = i * 3
-        const x = base[ix]
-        const y = base[ix + 1]
-        const t = x / PAGE_WIDTH
-        const curl = Math.sin(o * Math.PI) * t * t * 0.22
-        const fold = Math.sin(o * Math.PI) * (1 - t) * 0.04
-        arr[ix] = x
-        arr[ix + 1] = y + fold
-        arr[ix + 2] = curl
+        arr[i * 3] = sx * u[i] * W
+        arr[i * 3 + 1] = top - v[i] * W
+        arr[i * 3 + 2] = z
       }
-      pos.needsUpdate = true
-      mesh.geometry.computeVertexNormals()
-    }
+    } else {
+      lastPose.current = 'turning'
+      const s = flip.dir
+      const zFrom = sheetZ(index, totalPages, s > 0 ? 'R' : 'L')
+      const zTo = sheetZ(index, totalPages, s > 0 ? 'L' : 'R')
 
-    const tick = () => {
-      const o = open.get()
-      const base = basePositions.current
-      if (base) {
-        applyCurl(frontRef.current, base, o)
-        applyCurl(backRef.current, base, o)
+      if (flip.hard) {
+        const along = flip.t / Math.PI
+        const zBase = zFrom + (zTo - zFrom) * along
+        const p: [number, number] = [0, 0]
+        for (let i = 0; i < pos.count; i++) {
+          boardPoint(u[i], flip.t, p)
+          arr[i * 3] = s * p[0] * W
+          arr[i * 3 + 1] = top - v[i] * W
+          arr[i * 3 + 2] = zBase + p[1] * W
+        }
+      } else {
+        const fold = foldOf(flip.C, flip.P)
+        const r = fold ? curlRadius(fold.len) : 0
+        // the folded flap rides above both stacks, settling onto the far one as it lands
+        const above = Math.max(zFrom, zTo) + SHEET_GAP
+        const settle = smoothstep(clamp((engine.progress() - 0.85) / 0.15, 0, 1))
+        const zFlap = above + (zTo - above) * settle
+        const p: [number, number, number, number] = [0, 0, 0, 0]
+        for (let i = 0; i < pos.count; i++) {
+          if (fold) curlPoint(u[i], v[i], fold, r, p)
+          else {
+            p[0] = u[i]
+            p[1] = v[i]
+            p[2] = 0
+            p[3] = 0
+          }
+          arr[i * 3] = s * p[0] * W
+          arr[i * 3 + 1] = top - p[1] * W
+          arr[i * 3 + 2] = zFrom + (zFlap - zFrom) * p[3] + p[2] * W
+        }
       }
-      if (groupRef.current) {
-        const frontStackZ = -index * 0.012
-        const backStackZ = -(totalPages - index) * 0.012
-        // Keep sheet depth aligned with flip progress so the page does not
-        // jump stacks at animation start/end.
-        groupRef.current.position.z = frontStackZ + (backStackZ - frontStackZ) * o
-      }
-      frame = requestAnimationFrame(tick)
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [open, flipped, index, totalPages])
+    pos.needsUpdate = true
+    front.computeVertexNormals()
+  })
 
   const frontMat = useMemo(
     () =>
@@ -149,72 +146,15 @@ export function BookPage({
         map: backMap,
         roughness: 0.88,
         metalness: 0.02,
-        side: THREE.FrontSide,
+        side: THREE.BackSide,
       }),
     [backMap],
   )
 
-  const hotspotAt = (e: ThreeEvent<PointerEvent | MouseEvent>) => {
-    if (flipped || !hotspots?.length || !e.uv) return undefined
-    return findHotspotFromUv(hotspots, e.uv.x, e.uv.y)
-  }
-
-  const handleFrontClick = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation()
-    if (e.delta > CLICK_DRAG_TOLERANCE_PX) return
-    const hit = hotspotAt(e)
-    if (hit) {
-      onHotspot?.(hit.action)
-      return
-    }
-    onClickPage?.()
-  }
-
-  const handleFrontPointerMove = (e: ThreeEvent<PointerEvent>) => {
-    // Pages underneath would otherwise reset the cursor for the top page.
-    e.stopPropagation()
-    const hit = hotspotAt(e)
-    document.body.style.cursor = hit ? 'pointer' : ''
-    onHoverHotspot?.(hit)
-  }
-
-  const handleFrontPointerOut = () => {
-    document.body.style.cursor = ''
-    onHoverHotspot?.(undefined)
-  }
-
-  const handleBackClick = (e: ThreeEvent<MouseEvent>) => {
-    e.stopPropagation()
-    if (e.delta > CLICK_DRAG_TOLERANCE_PX) return
-    onClickPage?.()
-  }
-
   return (
-    <animated.group
-      ref={groupRef}
-      rotation-y={open.to((o) => -o * Math.PI - Math.sin(o * Math.PI) * 0.09)}
-      position-y={open.to((o) => Math.sin(o * Math.PI) * 0.02)}
-    >
-      <mesh
-        ref={frontRef}
-        geometry={frontGeo}
-        material={frontMat}
-        castShadow
-        receiveShadow
-        onClick={handleFrontClick}
-        onPointerMove={handleFrontPointerMove}
-        onPointerOut={handleFrontPointerOut}
-      />
-      <mesh
-        ref={backRef}
-        geometry={backGeo}
-        material={backMat}
-        position={[PAGE_WIDTH, 0, -0.001]}
-        rotation={[0, Math.PI, 0]}
-        castShadow
-        receiveShadow
-        onClick={handleBackClick}
-      />
-    </animated.group>
+    <group>
+      <mesh ref={frontRef} geometry={sheet.front} material={frontMat} frustumCulled={false} castShadow receiveShadow />
+      <mesh geometry={sheet.back} material={backMat} frustumCulled={false} castShadow receiveShadow />
+    </group>
   )
 }

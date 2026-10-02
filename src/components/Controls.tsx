@@ -10,7 +10,6 @@ type ControlsProps = {
   pageCount: number
   canGoNext: boolean
   canGoPrev: boolean
-  isAnimating: boolean
   onNext: () => void
   onPrev: () => void
   onGoTo: (page: number) => void
@@ -22,7 +21,6 @@ export function Controls({
   pageCount,
   canGoNext,
   canGoPrev,
-  isAnimating,
   onNext,
   onPrev,
   onGoTo,
@@ -33,7 +31,7 @@ export function Controls({
     <div className="ui-overlay">
       <header className="brand-bar">
         <p className="brand">TLC Scrapbook</p>
-        <p className="hint">Tap a name in the index · Click page · Drag · Arrow keys</p>
+        <p className="hint">Tap a name in the index · Tap or drag a page corner · Arrow keys</p>
       </header>
 
       <div className="nav-bar">
@@ -41,7 +39,7 @@ export function Controls({
           type="button"
           className="nav-btn"
           onClick={() => onGoTo(LEADERS_INDEX_PAGE)}
-          disabled={isAnimating || flippedCount === LEADERS_INDEX_PAGE}
+          disabled={flippedCount === LEADERS_INDEX_PAGE}
         >
           Leaders
         </button>
@@ -49,7 +47,7 @@ export function Controls({
           type="button"
           className="nav-btn"
           onClick={() => onGoTo(ORGANIZERS_INDEX_PAGE)}
-          disabled={isAnimating || flippedCount === ORGANIZERS_INDEX_PAGE}
+          disabled={flippedCount === ORGANIZERS_INDEX_PAGE}
         >
           Organizers
         </button>
@@ -58,7 +56,7 @@ export function Controls({
           type="button"
           className="nav-btn"
           onClick={onPrev}
-          disabled={!canGoPrev || isAnimating}
+          disabled={!canGoPrev}
         >
           Previous
         </button>
@@ -66,7 +64,7 @@ export function Controls({
           type="button"
           className="nav-btn"
           onClick={onNext}
-          disabled={!canGoNext || isAnimating}
+          disabled={!canGoNext}
         >
           Next
         </button>

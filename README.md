@@ -18,11 +18,12 @@ npm run preview
 
 ## Controls
 
-- **Tap a name** in the Leaders or Organizers index to jump to that page
+- **Drag a page** by its corner or edge: it folds along a crease that follows the pointer. Let go past the spine (or flick) to turn it; otherwise it falls back. The covers swing open as stiff boards.
+- **Tap a page** to turn it; rapid taps queue up
+- **Tap a name** in the Leaders or Organizers index to flip through to that page
 - **Leaders / Organizers** buttons jump back to either index
 - **Next / Previous** buttons
-- **Arrow keys** (and Space for next)
-- **Click** a page stack, or **drag left/right** on the book
+- **Arrow keys**, PageUp / PageDown, Space / Shift+Space; **Home** / **End** for the covers
 - Orbit the camera with mouse drag on empty space; scroll to zoom
 
 ## Book order
@@ -58,11 +59,12 @@ Each entry:
 ## Project structure
 
 - `src/components/BookScene.tsx` — canvas, lights, camera, book assembly
-- `src/components/BookPage.tsx` — page mesh + curl flip animation
+- `src/components/BookPage.tsx` — page mesh, deformed each frame into flat, curled, or swinging-board poses
+- `src/utils/pageFold.ts` — crease and curl geometry for a page fold
 - `src/components/AttendeeCardPage.tsx` — builds page textures from attendee data
 - `src/components/Controls.tsx` — overlay UI + LinkedIn link
 - `src/utils/createPageTexture.ts` — canvas drawing for covers and pages
-- `src/hooks/useBookNavigation.ts` — one-page-at-a-time navigation state
+- `src/hooks/useFlipEngine.ts` — page-turn state machine (drag, tap, queued jumps, covers)
 
 ## Notes
 

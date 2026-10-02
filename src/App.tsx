@@ -3,8 +3,9 @@ import leadersData from './data/attendees.json'
 import organizersData from './data/organizers.json'
 import type { Attendee } from './types/attendee'
 import { BookScene } from './components/BookScene'
+import { PAGE_ASPECT } from './components/BookPage'
 import { Controls } from './components/Controls'
-import { useBookNavigation } from './hooks/useBookNavigation'
+import { useFlipEngine } from './hooks/useFlipEngine'
 import { buildBookLayout } from './utils/bookLayout'
 import './styles.css'
 
@@ -14,31 +15,21 @@ function App() {
     [],
   )
   const pageCount = layout.length
-  const nav = useBookNavigation(pageCount)
-
+  const book = useFlipEngine(pageCount, PAGE_ASPECT)
   return (
     <div className="app-shell">
       <div className="canvas-wrap">
-        <BookScene
-          layout={layout}
-          flippedCount={nav.flippedCount}
-          isJumping={nav.isJumping}
-          onNext={nav.next}
-          onPrev={nav.prev}
-          onGoTo={nav.goTo}
-          onFlipComplete={nav.completeAnimation}
-        />
+        <BookScene layout={layout} engine={book.engine} onGoTo={book.goTo} />
       </div>
       <Controls
         layout={layout}
-        flippedCount={nav.visibleCount}
+        flippedCount={book.index}
         pageCount={pageCount}
-        canGoNext={nav.canGoNext}
-        canGoPrev={nav.canGoPrev}
-        isAnimating={nav.isAnimating}
-        onNext={nav.next}
-        onPrev={nav.prev}
-        onGoTo={nav.goTo}
+        canGoNext={book.canGoNext}
+        canGoPrev={book.canGoPrev}
+        onNext={book.next}
+        onPrev={book.prev}
+        onGoTo={book.goTo}
       />
     </div>
   )
