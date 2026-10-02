@@ -6,6 +6,7 @@ import {
   createBlankPageTexture,
   createCoverTexture,
   createIndexPageTexture,
+  paintPage,
   type PageHotspot,
 } from '../utils/createPageTexture'
 
@@ -22,6 +23,25 @@ export type PageSheet = {
   frontMap: THREE.Texture
   backMap: THREE.Texture
   hotspots: PageHotspot[]
+  setHovered: (hotspot: PageHotspot | undefined) => void
+}
+
+function createInteractiveFront(base: HTMLCanvasElement, hotspots: PageHotspot[]) {
+  const display = document.createElement('canvas')
+  display.width = base.width
+  display.height = base.height
+  paintPage(display, base, hotspots)
+  const texture = canvasToTexture(display)
+
+  let current: PageHotspot | undefined
+  const setHovered = (hotspot: PageHotspot | undefined) => {
+    if (hotspot === current) return
+    current = hotspot
+    paintPage(display, base, hotspots, hotspot)
+    texture.needsUpdate = true
+  }
+
+  return { texture, setHovered }
 }
 
 const INDEX_COPY = {
@@ -78,11 +98,13 @@ export function useScrapbookPages(layout: BookPageSpec[]) {
       for (let i = 0; i < layout.length; i++) {
         const spec = layout[i]
         const front = await buildFront(spec, i)
+        const { texture, setHovered } = createInteractiveFront(front.canvas, front.hotspots)
         built.push({
           id: spec.id,
-          frontMap: canvasToTexture(front.canvas),
+          frontMap: texture,
           backMap: canvasToTexture(createBlankPageTexture()),
           hotspots: front.hotspots,
+          setHovered,
         })
       }
 

@@ -110,6 +110,7 @@ function ScrapbookBook({
           fast={isJumping}
           hotspots={sheet.hotspots}
           onHotspot={handleHotspot}
+          onHoverHotspot={sheet.setHovered}
           onClickPage={() => {
             if (index < flippedCount) onPrev()
             else onNext()

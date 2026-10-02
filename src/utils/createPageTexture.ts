@@ -14,6 +14,8 @@ const INK = '#045C34'
 const MUTED = '#2C6C4D'
 const ACCENT = '#045C34'
 const RULE = '#8EB8A3'
+const LINKEDIN_BLUE = '#0A66C2'
+const INK_HOVER = '#000000'
 
 function wrapText(
   ctx: CanvasRenderingContext2D,
@@ -52,9 +54,15 @@ function wrapText(
   return { endX: x + ctx.measureText(line).width, baselineY: cursorY }
 }
 
-function drawLinkedInIcon(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+function drawLinkedInIcon(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  color: string,
+) {
   ctx.save()
-  ctx.fillStyle = ACCENT
+  ctx.fillStyle = color
   ctx.beginPath()
   ctx.roundRect(x, y, size, size, size * 0.18)
   ctx.fill()
@@ -196,7 +204,6 @@ export async function createAttendeePageTexture(
   if (attendee.linkedin) {
     const iconX = nameEnd.endX + LINKEDIN_ICON_GAP
     const iconY = nameEnd.baselineY - LINKEDIN_ICON_SIZE + 6
-    drawLinkedInIcon(ctx, iconX, iconY, LINKEDIN_ICON_SIZE)
     const pad = 12
     hotspots.push({
       x: iconX - pad,
@@ -204,6 +211,8 @@ export async function createAttendeePageTexture(
       width: LINKEDIN_ICON_SIZE + pad * 2,
       height: LINKEDIN_ICON_SIZE + pad * 2,
       action: { kind: 'url', href: attendee.linkedin },
+      draw: (c, hovered) =>
+        drawLinkedInIcon(c, iconX, iconY, LINKEDIN_ICON_SIZE, hovered ? LINKEDIN_BLUE : ACCENT),
     })
   }
 
@@ -369,12 +378,10 @@ export function createIndexPageTexture(
       ctx.fillStyle = MUTED
       ctx.fillText(pageLabel, x + columnWidth, baseline)
 
-      ctx.font = `600 ${fontSize}px "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif`
+      const nameFont = `600 ${fontSize}px "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif`
+      ctx.font = nameFont
       const name = fitText(ctx, entry.name, columnWidth - pageWidth - 24)
       const nameWidth = ctx.measureText(name).width
-      ctx.textAlign = 'left'
-      ctx.fillStyle = INK
-      ctx.fillText(name, x, baseline)
 
       const dotsStart = x + nameWidth + 10
       const dotsEnd = x + columnWidth - pageWidth - 10
@@ -389,6 +396,13 @@ export function createIndexPageTexture(
         width: columnWidth,
         height: rowHeight,
         action: { kind: 'page', page: entry.page },
+        draw: (c, hovered) => {
+          c.font = nameFont
+          c.textAlign = 'left'
+          c.textBaseline = 'alphabetic'
+          c.fillStyle = hovered ? INK_HOVER : INK
+          c.fillText(name, x, baseline)
+        },
       })
     })
   }
@@ -412,6 +426,25 @@ export type PageHotspot = {
   width: number
   height: number
   action: HotspotAction
+  /** Paints the hotspot's visual; kept off the base canvas so it can be repainted on hover. */
+  draw?: (ctx: CanvasRenderingContext2D, hovered: boolean) => void
+}
+
+export function paintPage(
+  target: HTMLCanvasElement,
+  base: HTMLCanvasElement,
+  hotspots: PageHotspot[],
+  hovered?: PageHotspot,
+) {
+  const ctx = target.getContext('2d')
+  if (!ctx) return
+  ctx.drawImage(base, 0, 0)
+  for (const h of hotspots) {
+    if (!h.draw) continue
+    ctx.save()
+    h.draw(ctx, h === hovered)
+    ctx.restore()
+  }
 }
 
 export const PAGE_TEXTURE_SIZE = { width: PAGE_W, height: PAGE_H }

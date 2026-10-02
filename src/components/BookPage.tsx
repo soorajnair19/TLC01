@@ -21,6 +21,7 @@ type BookPageProps = {
   fast?: boolean
   hotspots?: PageHotspot[]
   onHotspot?: (action: HotspotAction) => void
+  onHoverHotspot?: (hotspot: PageHotspot | undefined) => void
   onClickPage?: () => void
   onFlipSettled?: () => void
 }
@@ -47,6 +48,7 @@ export function BookPage({
   fast = false,
   hotspots,
   onHotspot,
+  onHoverHotspot,
   onClickPage,
   onFlipSettled,
 }: BookPageProps) {
@@ -169,11 +171,16 @@ export function BookPage({
   }
 
   const handleFrontPointerMove = (e: ThreeEvent<PointerEvent>) => {
-    document.body.style.cursor = hotspotAt(e) ? 'pointer' : ''
+    // Pages underneath would otherwise reset the cursor for the top page.
+    e.stopPropagation()
+    const hit = hotspotAt(e)
+    document.body.style.cursor = hit ? 'pointer' : ''
+    onHoverHotspot?.(hit)
   }
 
   const handleFrontPointerOut = () => {
     document.body.style.cursor = ''
+    onHoverHotspot?.(undefined)
   }
 
   const handleBackClick = (e: ThreeEvent<MouseEvent>) => {
