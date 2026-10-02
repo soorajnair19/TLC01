@@ -65,7 +65,7 @@ async function buildFront(
   switch (spec.kind) {
     case 'cover':
       return {
-        canvas: createCoverTexture('TLC Scrapbook', 'Approved Attendees'),
+        canvas: await createCoverTexture(),
         hotspots: [],
       }
     case 'index': {

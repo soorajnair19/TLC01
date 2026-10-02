@@ -251,34 +251,26 @@ export async function createAttendeePageTexture(
   return { canvas, hotspots }
 }
 
-export function createCoverTexture(title: string, subtitle: string): HTMLCanvasElement {
+const COVER_SRC = '/cover.png'
+const COVER_FRAME = '#d1d1d1'
+
+export async function createCoverTexture(): Promise<HTMLCanvasElement> {
   const canvas = document.createElement('canvas')
   canvas.width = PAGE_W
   canvas.height = PAGE_H
   const ctx = canvas.getContext('2d')
   if (!ctx) return canvas
 
-  const gradient = ctx.createLinearGradient(0, 0, PAGE_W, PAGE_H)
-  gradient.addColorStop(0, '#045C34')
-  gradient.addColorStop(0.5, '#057242')
-  gradient.addColorStop(1, '#024127')
-  ctx.fillStyle = gradient
+  ctx.fillStyle = COVER_FRAME
   ctx.fillRect(0, 0, PAGE_W, PAGE_H)
 
-  ctx.strokeStyle = '#DEDEDE'
-  ctx.lineWidth = 6
-  ctx.strokeRect(56, 56, PAGE_W - 112, PAGE_H - 112)
-  ctx.lineWidth = 2
-  ctx.strokeRect(76, 76, PAGE_W - 152, PAGE_H - 152)
+  const img = await loadImage(COVER_SRC)
+  if (!img) return canvas
 
-  ctx.fillStyle = '#DEDEDE'
-  ctx.textAlign = 'center'
-  ctx.font = `700 72px "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif`
-  wrapText(ctx, title, PAGE_W / 2, PAGE_H / 2 - 40, PAGE_W - 200, 84, 3)
-
-  ctx.fillStyle = '#DEDEDE'
-  ctx.font = `500 28px "Avenir Next", "Segoe UI", sans-serif`
-  ctx.fillText(subtitle, PAGE_W / 2, PAGE_H / 2 + 80)
+  const scale = Math.min(PAGE_W / img.width, PAGE_H / img.height)
+  const dw = img.width * scale
+  const dh = img.height * scale
+  ctx.drawImage(img, (PAGE_W - dw) / 2, (PAGE_H - dh) / 2, dw, dh)
 
   return canvas
 }
